@@ -26,6 +26,10 @@ class TextInputHandler(
             field = value.coerceIn(0, text.length)
             caretBlinkTime = System.currentTimeMillis()
         }
+    private val textPaddingX = 50f
+    private val textPaddingY = 9f
+    private val textHeight = 22f
+
 
     private var selection = text.length
     private var selectionWidth = 0f
@@ -52,20 +56,20 @@ class TextInputHandler(
         if (previousMousePos != mouseX to mouseY) mouseDragged(mouseX)
         previousMousePos = mouseX to mouseY
 
+        val startX = textStartX()
         NVGRenderer.pushScissor(x, y, width, height)
-        if (selectionWidth != 0f) NVGRenderer.rect(x + caretX + 4f, y, selectionWidth, height, Colors.MINECRAFT_BLUE.rgba, 4f)
+        if (selectionWidth != 0f) NVGRenderer.rect(startX + caretX, y, selectionWidth, height, Colors.MINECRAFT_BLUE.rgba, 4f)
         NVGRenderer.popScissor()
-
         if (listening) {
             val time = System.currentTimeMillis()
             if (time - caretBlinkTime < 500)
-                NVGRenderer.line(x + caretX + 4f - textOffset, y, x + caretX + 4f - textOffset, y + height, 2f, Colors.WHITE.rgba)
+                NVGRenderer.line(startX + caretX, y, startX + caretX, y + height, 2f, Colors.WHITE.rgba)
             else if (time - caretBlinkTime > 1000)
                 caretBlinkTime = System.currentTimeMillis()
         }
         NVGRenderer.pushScissor(x, y, width, height)
 
-        NVGRenderer.text(text, x + 4f - textOffset, y + 2f, height - 2, Colors.WHITE.rgba, NVGRenderer.defaultFont)
+        NVGRenderer.text(text, startX, y + textPaddingY, textHeight - 2, Colors.WHITE.rgba, NVGRenderer.defaultFont)
 
         NVGRenderer.popScissor()
     }
@@ -249,7 +253,7 @@ class TextInputHandler(
     }
 
     private fun caretFromMouse(mouseX: Float) {
-        val mx = mouseX - (x + textOffset)
+        val mx = mouseX - textStartX()
 
         var currWidth = 0f
         var newCaret = 0
@@ -260,31 +264,18 @@ class TextInputHandler(
             currWidth += charWidth
             newCaret = index + 1
         }
-        caret = newCaret
         updateCaretPosition()
     }
 
+
     private fun updateCaretPosition() {
+        caretX = textWidth(text.substringSafe(0, caret))
+
         if (selection != caret) {
             selectionWidth = textWidth(text.substringSafe(selection, caret))
             if (selection <= caret) selectionWidth *= -1
-        } else selectionWidth = 0f
-
-        if (caret != 0) {
-            val previousX = caretX
-            caretX = textWidth(text.substringSafe(0, caret))
-
-            if (previousX < caretX) {
-                if (caretX - textOffset >= width) textOffset = caretX - width
-            } else {
-                if (caretX - textOffset <= 0f) textOffset = textWidth(text.substringSafe(0, caret - 1))
-            }
-
-            if (textOffset > 0 && textWidth(text) - textOffset < width)
-                textOffset = (textWidth(text) - width).coerceAtLeast(0f)
         } else {
-            caretX = 0f
-            textOffset = 0f
+            selectionWidth = 0f
         }
     }
 
@@ -322,7 +313,13 @@ class TextInputHandler(
         return end
     }
 
-    private fun textWidth(text: String): Float = NVGRenderer.textWidth(text, height - 2, NVGRenderer.defaultFont)
+    private fun textWidth(text: String): Float =
+        NVGRenderer.textWidth(text, textHeight - 2, NVGRenderer.defaultFont)
+
+    private fun textStartX(): Float {
+        val tw = textWidth(text)
+        return x + width / 2f - tw / 2f
+    }
 
     private fun resetState() {
         listening = false
